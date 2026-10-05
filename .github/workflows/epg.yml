@@ -14,12 +14,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install xmlstarlet（xml过滤工具）
+      - name: Install xmlstarlet
         run: sudo apt update && sudo apt install -y xmlstarlet
 
       - name: Try multiple EPG sources
         run: |
-          # 源列表
+          # 设置时区 上海时间
+          export TZ=Asia/Shanghai
           sources=(
             "https://epg.112114.xyz/pp.xml"
             "https://iptv-org.github.io/epg/guides/cn.xml"
@@ -39,14 +40,22 @@ jobs:
             exit 1
           fi
 
-          # 计算今天日期 YYYYMMDD
           TODAY=$(date +%Y%m%d)
-          echo "保留日期: $TODAY"
+          TOMORROW=$(date -d "+1 day" +%Y%m%d)
+          echo "保留范围：$TODAY 全天 ~ $TOMORROW 06:00"
 
-          # 过滤：只保留start属性以今天开头的program节目
-          xmlstarlet ed -d "//program[not(starts-with(@start,'$TODAY'))]" full.xml > e.xml
+          # 删除：不在【今天全天，或明天0点~6点】的节目
+          # 规则：保留 start=今天所有，或者 start=明天并且小时小于06
+          xmlstarlet ed \
+            -d "//program[
+              not(
+                starts-with(@start,'$TODAY')
+                or
+                (starts-with(@start,'$TOMORROW') and substring(@start,9,2) < '06')
+              )
+            ]" \
+            full.xml > e.xml
 
-          # 复制为all.xml
           cp e.xml all.xml
           gzip -f e.xml
           gzip -f all.xml
