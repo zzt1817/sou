@@ -22,7 +22,7 @@ jobs:
           # 设置时区 上海时间
           export TZ=Asia/Shanghai
           sources=(
-            "https://epg.112114.xyz/pp.xml"
+            "https://epg.112114.xyz/pp.xml.gz"
             "https://iptv-org.github.io/epg/guides/cn.xml"
           )
           success=0
