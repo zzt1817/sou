@@ -1,0 +1,50 @@
+name: EPG Auto Update Multi Source
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 1 * * *' # UTC 01:00 = 北京时间09:00
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Try multiple EPG sources
+        run: |
+          # 源列表，按优先级依次尝试
+          sources=(
+            "https://epg.112114.xyz/pp.xml"
+            "https://iptv-org.github.io/epg/guides/cn.xml"
+          )
+          success=0
+          for url in "${sources[@]}"; do
+            echo "Trying source: $url"
+            if curl -sL --connect-timeout 20 "$url" -o e.xml; then
+              echo "✅ Download success: $url"
+              success=1
+              break
+            fi
+            echo "❌ Failed, try next source..."
+          done
+          if [ $success -ne 1 ]; then
+            echo "❌ All sources download failed!"
+            exit 1
+          fi
+          
+          # 复制成all.xml，压缩gz
+          cp e.xml all.xml
+          gzip -f e.xml
+          gzip -f all.xml
+
+      - name: Commit & Push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add e.xml.gz all.xml.gz
+          git commit -m "Auto update EPG $(date +%Y-%m-%d)" || echo "No changes"
+          git push
